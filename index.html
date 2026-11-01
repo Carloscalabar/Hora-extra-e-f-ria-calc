@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hora extra, férias e rescisão</title>
+<meta name="theme-color" content="#17252A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#E6EBE8; --paper:#F7F9F7; --ink:#17252A; --muted:#5B6B68; --rule:#B7C3BE;
+  --accent:#F0B323; --accent-ink:#1B1500; --green:#1E6B5C; --danger:#A3361F;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#101A1D; --paper:#18262A; --ink:#E8EEEB; --muted:#9DB0AB; --rule:#33474C; --green:#5CC2A8; --danger:#F08A70; }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:560px;margin:0 auto;padding:20px 18px}
+h1{font-size:22px;line-height:1.2;margin:4px 0 2px;font-weight:700;letter-spacing:-.01em}
+.sub{margin:0 0 18px;color:var(--muted);font-size:14px}
+label{display:block;font-size:14px;font-weight:600;margin-bottom:4px}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+input[type=text],input[type=number],input[type=date],select{
+  width:100%; font:inherit; font-size:18px; color:var(--ink);
+  background:var(--paper); border:1.5px solid var(--rule); border-radius:8px;
+  padding:11px 12px; font-variant-numeric:tabular-nums;
+}
+input:focus,select:focus,summary:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.salary{margin-bottom:22px}
+.salary input{font-size:24px;font-weight:700}
+
+/* Linhas de hora extra */
+.lines{border-top:2px solid var(--ink)}
+.line{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule)}
+.pct{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.line input{font-size:18px;padding:9px 10px}
+.line .val{min-width:96px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.line .val small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+
+input[type=date]{min-height:50px}
+.full{grid-column:1/-1}
+.head{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 2px}
+
+/* Ajustes */
+details{margin:16px 0}
+summary{cursor:pointer;font-weight:600;font-size:14px;padding:6px 0}
+.adjust{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:8px 0}
+.check{display:flex;gap:10px;align-items:center;font-weight:500;margin:10px 0}
+.check input{width:22px;height:22px;accent-color:var(--green)}
+
+/* Resultado */
+.total{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:16px 18px;margin:18px 0 8px}
+.total span{font-size:14px;font-weight:600}
+.total strong{display:block;font-size:38px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ledger{margin:0}
+.row{display:flex;align-items:baseline;gap:8px;padding:6px 0}
+.row .dots{flex:1;border-bottom:2px dotted var(--rule);transform:translateY(-4px)}
+.row b{font-variant-numeric:tabular-nums}
+.row.minus b{color:var(--danger)}
+.row.sum{border-top:2px solid var(--ink);margin-top:6px;padding-top:10px;font-size:18px}
+.note{font-size:13px;color:var(--muted);margin-top:14px}
+
+/* Abas inferiores */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--ink);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{
+  flex:1;background:none;border:0;color:#C9D6D2;font:inherit;font-size:16px;font-weight:600;
+  padding:18px 4px;cursor:pointer;border-top:4px solid transparent;
+}
+nav button[aria-selected=true]{color:#fff;border-top-color:var(--accent)}
+section[hidden]{display:none}
+@media (prefers-reduced-motion:no-preference){ .total strong{transition:opacity .15s} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hora extra, férias e rescisão</h1>
+  <p class="sub">Digite o salário bruto e veja o valor na hora.</p>
+
+  <div class="salary">
+    <label for="salario">Salário bruto (R$)</label>
+    <input id="salario" type="text" inputmode="decimal" placeholder="3.500,00" autocomplete="off">
+  </div>
+
+  <!-- HORA EXTRA -->
+  <section id="tab-extra" aria-labelledby="t-extra">
+    <div class="lines" role="group" aria-label="Quantidade de horas por adicional">
+      <div class="line">
+        <div class="pct">50%</div>
+        <div><label for="h50" class="sr" style="margin:0;font-weight:500;font-size:13px;color:var(--muted)">Horas</label><input id="h50" data-pct="50" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="val" id="v50">R$ 0,00</div>
+      </div>
+      <div class="line">
+        <div class="pct">65%</div>
+        <div><label for="h65" style="margin:0;font-weight:500;font-size:13px;color:var(--muted)">Horas</label><input id="h65" data-pct="65" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="val" id="v65">R$ 0,00</div>
+      </div>
+      <div class="line">
+        <div class="pct">100%</div>
+        <div><label for="h100" style="margin:0;font-weight:500;font-size:13px;color:var(--muted)">Horas</label><input id="h100" data-pct="100" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="val" id="v100">R$ 0,00</div>
+      </div>
+    </div>
+    <p class="hint">Aceita 2,5 ou 2:30 para duas horas e meia.</p>
+
+    <details>
+      <summary>Ajustes do cálculo</summary>
+      <div class="adjust">
+        <div>
+          <label for="divisor">Horas por mês</label>
+          <input id="divisor" type="text" inputmode="decimal" value="220">
+        </div>
+        <div></div>
+      </div>
+      <label class="check"><input id="dsr" type="checkbox"> Incluir descanso semanal (DSR)</label>
+      <div class="adjust" id="dsr-box" hidden>
+        <div>
+          <label for="diasUteis">Dias úteis no mês</label>
+          <input id="diasUteis" type="text" inputmode="numeric" value="25">
+        </div>
+        <div>
+          <label for="domFer">Domingos e feriados</label>
+          <input id="domFer" type="text" inputmode="numeric" value="5">
+        </div>
+      </div>
+    </details>
+
+    <div class="total" aria-live="polite">
+      <span>Total a receber de hora extra</span>
+      <strong id="extraTotal">R$ 0,00</strong>
+    </div>
+    <div class="ledger" id="extraLedger"></div>
+  </section>
+
+  <!-- FÉRIAS -->
+  <section id="tab-ferias" aria-labelledby="t-ferias" hidden>
+    <div class="adjust" style="padding-top:0">
+      <div>
+        <label for="diasFerias">Dias de férias a gozar</label>
+        <input id="diasFerias" type="text" inputmode="numeric" value="30">
+      </div>
+      <div>
+        <label for="diasVendidos">Dias vendidos (até 10)</label>
+        <input id="diasVendidos" type="text" inputmode="numeric" placeholder="0" value="0">
+      </div>
+      <div>
+        <label for="variaveis">Média de extras e comissões</label>
+        <input id="variaveis" type="text" inputmode="decimal" placeholder="0,00">
+      </div>
+      <div>
+        <label for="dep">Dependentes (IR)</label>
+        <input id="dep" type="text" inputmode="numeric" value="0">
+      </div>
+    </div>
+    <p class="hint" id="feriasAviso" aria-live="polite"></p>
+
+    <div class="total" aria-live="polite">
+      <span>Férias líquidas (estimativa)</span>
+      <strong id="feriasLiquido">R$ 0,00</strong>
+    </div>
+    <div class="ledger" id="feriasLedger"></div>
+    <p class="note">Estimativa com as tabelas de INSS e IRRF de 2026. O valor do holerite pode variar conforme sua empresa e sua convenção coletiva.</p>
+  </section>
+
+  <!-- RESCISÃO -->
+  <section id="tab-rescisao" aria-labelledby="t-rescisao" hidden>
+    <div class="adjust" style="padding-top:0">
+      <div class="full">
+        <label for="rTipo">Tipo de rescisão</label>
+        <select id="rTipo">
+          <option value="sem_justa">Demissão sem justa causa</option>
+          <option value="pedido">Pedido de demissão</option>
+          <option value="acordo">Acordo entre as partes</option>
+          <option value="justa">Justa causa</option>
+        </select>
+      </div>
+      <div>
+        <label for="rAdm">Data de admissão</label>
+        <input id="rAdm" type="date">
+      </div>
+      <div>
+        <label for="rSaida">Data de saída</label>
+        <input id="rSaida" type="date">
+      </div>
+      <div class="full">
+        <label for="rAviso">Aviso prévio</label>
+        <select id="rAviso"></select>
+      </div>
+    </div>
+    <p class="hint" id="rTempo"></p>
+
+    <details open>
+      <summary>Outros dados</summary>
+      <div class="adjust">
+        <div>
+          <label for="rVencidas">Férias vencidas (períodos)</label>
+          <input id="rVencidas" type="text" inputmode="numeric" value="0">
+        </div>
+        <div>
+          <label for="rDep">Dependentes (IR)</label>
+          <input id="rDep" type="text" inputmode="numeric" value="0">
+        </div>
+        <div>
+          <label for="rVar">Média de extras e comissões</label>
+          <input id="rVar" type="text" inputmode="decimal" placeholder="0,00">
+        </div>
+        <div>
+          <label for="rFgts">Saldo do FGTS (opcional)</label>
+          <input id="rFgts" type="text" inputmode="decimal" placeholder="Veja no app FGTS">
+        </div>
+      </div>
+    </details>
+    <p class="hint" id="rMsg" aria-live="polite"></p>
+
+    <div class="total" aria-live="polite">
+      <span>Rescisão líquida (estimativa)</span>
+      <strong id="rLiquido">R$ 0,00</strong>
+    </div>
+    <div class="ledger" id="rLedger"></div>
+    <p class="note">Estimativa para contrato CLT sem prazo determinado, com as tabelas de INSS e IRRF de 2026. Não inclui seguro-desemprego, parcelas do 13º já pagas, férias vencidas pagas em dobro, pensão ou outros descontos. O aviso indenizado conta como tempo de serviço para o 13º e as férias. Confira o valor final com o RH, o sindicato ou um contador.</p>
+  </section>
+</div>
+
+<nav role="tablist" aria-label="Calculadoras">
+  <button role="tab" id="t-extra" aria-selected="true" data-tab="extra">Hora extra</button>
+  <button role="tab" id="t-ferias" aria-selected="false" data-tab="ferias">Férias</button>
+  <button role="tab" id="t-rescisao" aria-selected="false" data-tab="rescisao">Rescisão</button>
+</nav>
+
+<script>
+const $ = s => document.querySelector(s);
+const brl = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+
+/* Converte texto digitado em número: aceita 3.500,00 / 3500.50 / 2:30 */
+function num(s){
+  s = String(s ?? '').trim().replace(/\s/g,'').replace(/^R\$/,'');
+  if(!s) return 0;
+  if(s.includes(':')){ const [h,m] = s.split(':'); return (parseFloat(h)||0) + (parseFloat(m)||0)/60; }
+  if(s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  const n = parseFloat(s);
+  return isFinite(n) && n > 0 ? n : 0;
+}
+
+/* Tabelas 2026 */
+function inss(base){
+  const faixas = [[1621.00,.075],[2902.84,.09],[4354.27,.12],[8475.55,.14]];
+  let prev = 0, total = 0;
+  for(const [lim, al] of faixas){
+    if(base > prev) total += (Math.min(base, lim) - prev) * al;
+    prev = lim;
+  }
+  return total;
+}
+function irrf(bruto, inssVal, dependentes){
+  const deducao = Math.max(inssVal + dependentes * 189.59, 607.20);
+  const base = Math.max(bruto - deducao, 0);
+  let imp = 0;
+  if(base <= 2428.80) imp = 0;
+  else if(base <= 2826.65) imp = base*.075 - 182.16;
+  else if(base <= 3751.05) imp = base*.15  - 394.16;
+  else if(base <= 4664.68) imp = base*.225 - 675.49;
+  else imp = base*.275 - 908.73;
+  imp = Math.max(imp, 0);
+  let redutor = 0;
+  if(bruto <= 5000) redutor = Math.min(imp, 312.89);
+  else if(bruto <= 7350) redutor = Math.max(0, Math.min(imp, 978.62 - 0.133145*bruto));
+  return Math.max(imp - redutor, 0);
+}
+
+const row = (label, value, cls='') =>
+  `<div class="row ${cls}"><span>${label}</span><span class="dots"></span><b>${value}</b></div>`;
+
+/* ---------- Hora extra ---------- */
+function calcExtra(){
+  const sal = num($('#salario').value);
+  const div = num($('#divisor').value) || 220;
+  const horaNormal = sal / div;
+  let totalExtra = 0, totalHoras = 0, html = row('Valor da hora normal', brl(horaNormal));
+  for(const p of [50,65,100]){
+    const h = num($('#h'+p).value);
+    const valHora = horaNormal * (1 + p/100);
+    const sub = valHora * h;
+    totalExtra += sub; totalHoras += h;
+    $('#v'+p).innerHTML = brl(sub) + `<small>${brl(valHora)} por hora</small>`;
+    if(h > 0) html += row(`${String(h).replace('.',',')} h a ${p}%`, brl(sub));
+  }
+  let dsr = 0;
+  if($('#dsr').checked){
+    const du = num($('#diasUteis').value), df = num($('#domFer').value);
+    if(du > 0) dsr = totalExtra / du * df;
+    html += row('Descanso semanal (DSR)', brl(dsr));
+  }
+  const total = totalExtra + dsr;
+  $('#extraTotal').textContent = brl(total);
+  html += row('Total bruto', brl(total), 'sum');
+  $('#extraLedger').innerHTML = html;
+}
+
+/* ---------- Férias ---------- */
+function calcFerias(){
+  const sal = num($('#salario').value) + num($('#variaveis').value);
+  const dias = Math.floor(num($('#diasFerias').value));
+  const vendidos = Math.min(Math.floor(num($('#diasVendidos').value)), 10);
+  const dep = Math.floor(num($('#dep').value));
+  const valorDia = sal / 30;
+  const ferias = valorDia * dias;
+  const terco = ferias / 3;
+  const abono = valorDia * vendidos;
+  const tercoAbono = abono / 3;
+  const tributavel = ferias + terco;
+  const i = inss(tributavel);
+  const r = irrf(tributavel, i, dep);
+  const bruto = ferias + terco + abono + tercoAbono;
+  const liquido = bruto - i - r;
+
+  let html = row(`Férias (${dias} dias)`, brl(ferias)) + row('Adicional de 1/3', brl(terco));
+  if(abono > 0){
+    html += row(`Abono de ${vendidos} ${vendidos === 1 ? 'dia' : 'dias'}`, brl(abono)) + row('1/3 do abono', brl(tercoAbono));
+  }
+  html += row('Total bruto', brl(bruto), 'sum');
+  html += row('INSS', '− ' + brl(i), 'minus') + row('Imposto de renda', '− ' + brl(r), 'minus');
+  html += row('Líquido', brl(liquido), 'sum');
+  $('#feriasLiquido').textContent = brl(liquido);
+  const bruto0 = num($('#diasVendidos').value);
+  $('#feriasAviso').textContent =
+    bruto0 > 10 ? 'Você pode vender no máximo 10 dias. O cálculo usou 10.' :
+    (dias + vendidos > 30 ? 'Dias de férias mais dias vendidos passam de 30.' : '');
+  $('#feriasLedger').innerHTML = html;
+}
+
+/* ---------- Datas ---------- */
+const MS_DIA = 86400000;
+function parseData(v){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) return null;
+  const [y,m,d] = v.split('-').map(Number);
+  const dt = new Date(y, m-1, d, 12);
+  return isNaN(dt) ? null : dt;
+}
+const addDias = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);
+function addMeses(d, n){
+  const alvo = new Date(d.getFullYear(), d.getMonth() + n, 1, 12);
+  const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0, 12).getDate();
+  alvo.setDate(Math.min(d.getDate(), ultimo));
+  return alvo;
+}
+const difDias = (a, b) => Math.round((b - a) / MS_DIA);
+function anosCompletos(adm, fim){
+  let n = fim.getFullYear() - adm.getFullYear();
+  if(addMeses(adm, n * 12) > fim) n--;
+  return Math.max(n, 0);
+}
+/* anos, meses e dias entre duas datas (saída conta como dia trabalhado) */
+function tempoTrabalho(adm, saida){
+  const a = anosCompletos(adm, saida);
+  const base = addMeses(adm, a * 12);
+  const fimEx = addDias(saida, 1);
+  let m = 0;
+  while(addMeses(base, m + 1) <= fimEx) m++;
+  return {a, m, d: difDias(addMeses(base, m), fimEx)};
+}
+/* meses a partir de inicio até fim; sobra de 15 dias ou mais conta como mês */
+function mesesFracao(inicio, fim){
+  const fimEx = addDias(fim, 1);
+  let m = (fimEx.getFullYear() - inicio.getFullYear()) * 12 + (fimEx.getMonth() - inicio.getMonth());
+  if(addMeses(inicio, m) > fimEx) m--;
+  if(difDias(addMeses(inicio, m), fimEx) >= 15) m++;
+  return Math.max(0, Math.min(m, 12));
+}
+/* avos de 13º: meses do ano com 15 dias ou mais trabalhados */
+function avos13(inicio, fim){
+  let n = 0;
+  for(let m = inicio.getMonth(); m <= fim.getMonth(); m++){
+    const ini = m === inicio.getMonth() ? inicio.getDate() : 1;
+    const ultimo = new Date(fim.getFullYear(), m + 1, 0).getDate();
+    const f = m === fim.getMonth() ? fim.getDate() : ultimo;
+    if(f - ini + 1 >= 15) n++;
+  }
+  return n;
+}
+function avos13Total(adm, saida, fimProj){
+  let total = 0;
+  for(let ano = saida.getFullYear(); ano <= fimProj.getFullYear(); ano++){
+    let ini = new Date(ano, 0, 1, 12); if(adm > ini) ini = adm;
+    let fim = new Date(ano, 11, 31, 12); if(fimProj < fim) fim = fimProj;
+    if(ini <= fim) total += avos13(ini, fim);
+  }
+  return total;
+}
+const plural = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
+
+/* ---------- Rescisão ---------- */
+const OPCOES_AVISO = {
+  sem_justa: [['trabalhado','Trabalhado'], ['indenizado','Indenizado (a empresa paga e dispensa)']],
+  acordo:    [['trabalhado','Trabalhado'], ['indenizado','Indenizado (pago pela metade)']],
+  pedido:    [['trabalhado','Trabalhado'], ['nao_cumprido','Não cumprido (descontado)']],
+  justa:     [['nenhum','Não há aviso prévio']]
+};
+function montarAviso(){
+  const atual = $('#rAviso').value;
+  const ops = OPCOES_AVISO[$('#rTipo').value] || OPCOES_AVISO.sem_justa;
+  $('#rAviso').innerHTML = ops.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+  if(ops.some(o => o[0] === atual)) $('#rAviso').value = atual;
+}
+const head = t => `<div class="head">${t}</div>`;
+
+function calcRescisao(){
+  const msg = $('#rMsg'), led = $('#rLedger'), tot = $('#rLiquido');
+  const zerar = t => { msg.textContent = t; led.innerHTML = ''; tot.textContent = brl(0); };
+  const adm = parseData($('#rAdm').value), saida = parseData($('#rSaida').value);
+  $('#rTempo').textContent = '';
+  if(!adm || !saida) return zerar('Informe as datas de admissão e de saída.');
+  if(saida < adm) return zerar('A data de saída precisa ser depois da admissão.');
+
+  const t = tempoTrabalho(adm, saida);
+  const partes = [];
+  if(t.a) partes.push(plural(t.a, 'ano', 'anos'));
+  if(t.m) partes.push(plural(t.m, 'mês', 'meses'));
+  if(t.d || !partes.length) partes.push(plural(t.d, 'dia', 'dias'));
+  $('#rTempo').textContent = 'Tempo de trabalho: ' + (partes.length > 1 ? partes.slice(0, -1).join(', ') + ' e ' + partes[partes.length - 1] : partes[0]);
+
+  const sal = num($('#salario').value) + num($('#rVar').value);
+  if(!sal) return zerar('Informe o salário bruto no topo da tela.');
+
+  const tipo = $('#rTipo').value, aviso = $('#rAviso').value;
+  const dep = Math.floor(num($('#rDep').value));
+  const valorDia = sal / 30;
+
+  /* saldo de salário do último mês */
+  const ultimo = new Date(saida.getFullYear(), saida.getMonth() + 1, 0).getDate();
+  const mesmoMes = adm.getFullYear() === saida.getFullYear() && adm.getMonth() === saida.getMonth();
+  let diasSaldo;
+  if(mesmoMes) diasSaldo = (adm.getDate() === 1 && saida.getDate() === ultimo) ? 30 : Math.min(difDias(adm, saida) + 1, 30);
+  else diasSaldo = saida.getDate() === ultimo ? 30 : saida.getDate();
+  const saldo = valorDia * diasSaldo;
+
+  /* aviso prévio: 30 dias + 3 por ano completo, até 90 */
+  const diasLei = Math.min(30 + 3 * t.a, 90);
+  let avisoDias = 0, avisoValor = 0, avisoDesc = 0, projeta = 0;
+  if(tipo === 'sem_justa' && aviso === 'indenizado'){ avisoDias = diasLei; avisoValor = valorDia * avisoDias; projeta = avisoDias; }
+  if(tipo === 'acordo' && aviso === 'indenizado'){ avisoDias = diasLei; avisoValor = valorDia * avisoDias / 2; projeta = avisoDias; }
+  if(tipo === 'pedido' && aviso === 'nao_cumprido'){ avisoDesc = sal; }
+  const fimProj = addDias(saida, projeta);
+
+  /* 13º e férias proporcionais (não há na justa causa) */
+  const temDireito = tipo !== 'justa';
+  const avosDecimo = temDireito ? avos13Total(adm, saida, fimProj) : 0;
+  const decimo = sal / 12 * avosDecimo;
+  let avosFer = 0;
+  if(temDireito){
+    const anosProj = anosCompletos(adm, fimProj);
+    avosFer = mesesFracao(addMeses(adm, anosProj * 12), fimProj) + (anosProj > t.a ? 12 : 0);
+  }
+  const ferProp = sal / 12 * avosFer * 4 / 3;
+  const periodos = Math.floor(num($('#rVencidas').value));
+  const ferVenc = sal * periodos * 4 / 3;
+
+  /* INSS e IR: só sobre saldo de salário e 13º (aviso e férias indenizadas não pagam) */
+  const inssS = inss(saldo), irS = irrf(saldo, inssS, dep);
+  const inssD = inss(decimo), irD = decimo > 0 ? irrf(decimo, inssD, dep) : 0;
+  const inssTot = inssS + inssD, irTot = irS + irD;
+
+  const bruto = saldo + avisoValor + decimo + ferProp + ferVenc;
+  const descAviso = Math.min(avisoDesc, Math.max(bruto - inssTot - irTot, 0));
+  const liquido = bruto - inssTot - irTot - descAviso;
+
+  let html = head('Você recebe') + row(`Saldo de salário (${plural(diasSaldo, 'dia', 'dias')})`, brl(saldo));
+  if(avisoValor > 0) html += row(`Aviso prévio indenizado (${avisoDias} dias${tipo === 'acordo' ? ', metade' : ''})`, brl(avisoValor));
+  if(decimo > 0) html += row(`13º proporcional (${avosDecimo}/12)`, brl(decimo));
+  if(ferProp > 0) html += row(`Férias proporcionais + 1/3 (${avosFer}/12)`, brl(ferProp));
+  if(ferVenc > 0) html += row(`Férias vencidas + 1/3 (${plural(periodos, 'período', 'períodos')})`, brl(ferVenc));
+  html += row('Total bruto', brl(bruto), 'sum');
+  html += head('Descontos') + row('INSS', '− ' + brl(inssTot), 'minus') + row('Imposto de renda', '− ' + brl(irTot), 'minus');
+  if(descAviso > 0) html += row('Aviso prévio não cumprido', '− ' + brl(descAviso), 'minus');
+  html += row('Rescisão líquida', brl(liquido), 'sum');
+
+  /* FGTS: saldo + depósito sobre as verbas; multa de 40% (sem justa causa) ou 20% (acordo) */
+  let aviso2 = '';
+  const pctMulta = tipo === 'sem_justa' ? .4 : tipo === 'acordo' ? .2 : 0;
+  const pctSaque = tipo === 'sem_justa' ? 1 : tipo === 'acordo' ? .8 : 0;
+  if(pctSaque > 0){
+    const informado = num($('#rFgts').value);
+    const mesesTrab = t.a * 12 + t.m + (t.d >= 15 ? 1 : 0);
+    const base = informado > 0 ? informado : 0.08 * sal * mesesTrab;
+    const total = base + 0.08 * (saldo + avisoValor + decimo);
+    const multa = total * pctMulta;
+    const saque = total * pctSaque + multa;
+    html += head('FGTS');
+    html += row(informado > 0 ? 'Saldo do FGTS' : 'Saldo do FGTS (estimado)', brl(total));
+    html += row(`Multa de ${pctMulta * 100}%`, brl(multa));
+    html += row('Valor liberado para saque', brl(saque), 'sum');
+    html += row('Rescisão + FGTS', brl(liquido + saque), 'sum');
+    if(!(informado > 0)) aviso2 = 'FGTS estimado em 8% do salário por mês trabalhado. Informe o saldo real em "Outros dados" para ficar mais exato.';
+  }
+  if(tipo === 'acordo') aviso2 = (aviso2 + ' No acordo, o saque do FGTS é de 80% do saldo.').trim();
+  msg.textContent = aviso2;
+  tot.textContent = brl(liquido);
+  led.innerHTML = html;
+}
+
+function calc(){ calcExtra(); calcFerias(); calcRescisao(); save(); }
+
+/* ---------- Salvar no aparelho ---------- */
+const campos = ['salario','h50','h65','h100','divisor','diasUteis','domFer','variaveis','dep','diasFerias','diasVendidos','rTipo','rAdm','rSaida','rVencidas','rVar','rDep','rFgts'];
+function save(){
+  const d = {}; campos.forEach(id => d[id] = $('#'+id).value);
+  d.dsr = $('#dsr').checked;
+  d.rAviso = $('#rAviso').value;
+  try{ localStorage.setItem('calc-trabalhista', JSON.stringify(d)); }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem('calc-trabalhista') || '{}');
+    campos.forEach(id => { if(d[id] !== undefined) $('#'+id).value = d[id]; });
+    $('#dsr').checked = !!d.dsr;
+    montarAviso();
+    if(d.rAviso && [...$('#rAviso').options].some(o => o.value === d.rAviso)) $('#rAviso').value = d.rAviso;
+  }catch(e){}
+  if(!$('#rAviso').options.length) montarAviso();
+  $('#dsr-box').hidden = !$('#dsr').checked;
+}
+
+/* ---------- Eventos ---------- */
+document.addEventListener('input', calc);
+$('#dsr').addEventListener('change', () => { $('#dsr-box').hidden = !$('#dsr').checked; calc(); });
+/* Ao mudar os dias vendidos, os dias a gozar acompanham (30 menos os vendidos),
+   a menos que a pessoa tenha digitado os dias a gozar manualmente. */
+let diasManual = false;
+$('#diasFerias').addEventListener('input', () => { diasManual = true; });
+$('#diasVendidos').addEventListener('input', () => {
+  if(!diasManual) $('#diasFerias').value = String(30 - Math.min(Math.floor(num($('#diasVendidos').value)), 10));
+});
+['input','change'].forEach(ev => $('#rTipo').addEventListener(ev, () => { montarAviso(); calc(); }));
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
+  ['extra','ferias','rescisao'].forEach(n => { $('#tab-' + n).hidden = b.dataset.tab !== n; });
+  scrollTo(0,0);
+}));
+
+load();
+diasManual = Math.floor(num($('#diasFerias').value)) !== 30 - Math.min(Math.floor(num($('#diasVendidos').value)), 10);
+calc();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

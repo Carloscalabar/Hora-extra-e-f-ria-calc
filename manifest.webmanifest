@@ -1,0 +1,17 @@
+{
+  "name": "Hora extra, férias e rescisão",
+  "short_name": "Trabalhista",
+  "description": "Calcule hora extra (50%, 65% e 100%), férias e rescisão a partir do salário bruto.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17252A",
+  "theme_color": "#17252A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
